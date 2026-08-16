@@ -29,3 +29,13 @@ El proyecto **InMind** forma parte de un trabajo de investigación/tesis orienta
     *   Checkbox para asignación a grupo recurrente.
 *   **Persistencia de Estado**: Uso de `mutableStateListOf` para que las tareas guardadas se reflejen inmediatamente en el primer módulo (Tareas Pendientes).
 *   **Flujo de Usuario**: Al guardar una tarea, la aplicación navega automáticamente a la pantalla de tareas para mostrar el nuevo registro.
+
+### [Mejoras en Navegación y Visualización]
+*   **Calendario Avanzado**:
+    *   Botones de navegación para meses (`ArrowBack`, `ArrowForward`).
+    *   Selector de año interactivo (botones arriba/abajo).
+    *   **Indicador Visual**: Se añadió un punto debajo de los días que tienen al menos una tarea programada.
+*   **Módulo de Tareas Mejorado**:
+    *   **Botón de Vista**: Nuevo botón en la esquina superior derecha para alternar entre "Vista de Lista" y "Vista por Grupos" (utilizando `groupBy`).
+    *   **Botón de Acceso Rápido**: Botón "+" en la esquina superior para crear tareas directamente desde el listado.
+*   **Pop-up Versátil**: El diálogo de creación ahora permite editar la fecha manualmente si se abre desde la lista de tareas, mientras que permanece fija si se abre desde un día específico del calendario.
