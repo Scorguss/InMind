@@ -24,12 +24,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 data class Task(
+    val id: Long = kotlin.random.Random.nextLong(),
     val name: String,
     val description: String,
     val date: String,
     val reminder: String,
+    val recurrenceInterval: String = "Ninguno",
     val isRecurrent: Boolean,
-    val group: String = "General"
+    val group: String = "General",
+    var isCompleted: Boolean = false
 )
 
 @Composable
@@ -74,6 +77,21 @@ fun App() {
                             selectedDateForDialog = "01/01/2024" 
                             isDateEditable = true
                             showDialog = true
+                        },
+                        onFinishTask = { task ->
+                            if (task.isRecurrent) {
+                                // En un entorno real, esto se resetearía con un Timer/Worker
+                                // Por ahora lo marcamos como completado para que desaparezca de la vista actual
+                                val index = tasks.indexOf(task)
+                                if (index != -1) {
+                                    tasks[index] = tasks[index].copy(isCompleted = true)
+                                }
+                            } else {
+                                tasks.remove(task)
+                            }
+                        },
+                        onDeleteTask = { task ->
+                            tasks.remove(task)
                         }
                     )
                     1 -> CalendarScreen(
@@ -84,7 +102,7 @@ fun App() {
                             showDialog = true
                         }
                     )
-                    2 -> EmptyScreen()
+                    2 -> EmptyScreen(tasks)
                 }
             }
         }
@@ -109,8 +127,15 @@ fun App() {
 }
 
 @Composable
-fun TasksScreen(tasks: List<Task>, onAddTask: () -> Unit) {
+fun TasksScreen(
+    tasks: List<Task>, 
+    onAddTask: () -> Unit,
+    onFinishTask: (Task) -> Unit,
+    onDeleteTask: (Task) -> Unit
+) {
     var isGroupedView by remember { mutableStateOf(false) }
+    // Solo mostramos tareas que no han sido completadas
+    val visibleTasks = tasks.filter { !it.isCompleted }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
@@ -118,7 +143,7 @@ fun TasksScreen(tasks: List<Task>, onAddTask: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Tareas", style = MaterialTheme.typography.h6)
+            Text("Tareas Pendientes", style = MaterialTheme.typography.h6)
             Row {
                 IconButton(onClick = { isGroupedView = !isGroupedView }) {
                     Icon(
@@ -134,13 +159,13 @@ fun TasksScreen(tasks: List<Task>, onAddTask: () -> Unit) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (tasks.isEmpty()) {
+        if (visibleTasks.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No hay tareas programadas")
+                Text("No hay tareas pendientes", color = Color.Gray)
             }
         } else {
             if (isGroupedView) {
-                val groupedTasks = tasks.groupBy { it.group }
+                val groupedTasks = visibleTasks.groupBy { it.group }
                 LazyColumn {
                     groupedTasks.forEach { (group, tasksInGroup) ->
                         item {
@@ -156,15 +181,15 @@ fun TasksScreen(tasks: List<Task>, onAddTask: () -> Unit) {
                                 )
                             }
                         }
-                        items(tasksInGroup) { task ->
-                            TaskCard(task)
+                        items(tasksInGroup, key = { it.id }) { task ->
+                            TaskCard(task, onFinishTask, onDeleteTask)
                         }
                     }
                 }
             } else {
                 LazyColumn {
-                    items(tasks) { task ->
-                        TaskCard(task)
+                    items(visibleTasks, key = { it.id }) { task ->
+                        TaskCard(task, onFinishTask, onDeleteTask)
                     }
                 }
             }
@@ -173,24 +198,49 @@ fun TasksScreen(tasks: List<Task>, onAddTask: () -> Unit) {
 }
 
 @Composable
-fun TaskCard(task: Task) {
+fun TaskCard(
+    task: Task,
+    onFinish: (Task) -> Unit,
+    onDelete: (Task) -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         elevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text(task.name, style = MaterialTheme.typography.subtitle1)
-            Text(task.description, style = MaterialTheme.typography.body2)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(task.name, style = MaterialTheme.typography.subtitle1)
+                    Text(task.description, style = MaterialTheme.typography.body2)
+                }
+                Row {
+                    IconButton(onClick = { onFinish(task) }) {
+                        Icon(Icons.Default.Check, contentDescription = "Finalizar", tint = Color.Green)
+                    }
+                    IconButton(onClick = { onDelete(task) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                    }
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text(
+                        "Fecha: ${task.date} | Recordatorio: ${task.reminder}",
+                        style = MaterialTheme.typography.caption
+                    )
+                    if (task.isRecurrent) {
+                        Text(
+                            "Recurrencia: ${task.recurrenceInterval}",
+                            style = MaterialTheme.typography.caption,
+                            color = Color.Blue
+                        )
+                    }
+                }
                 Text(
-                    "Fecha: ${task.date} | Recordatorio: ${task.reminder}",
-                    style = MaterialTheme.typography.caption
-                )
-                Text(
-                    text = task.group,
+                    text = if (task.isRecurrent) "RECURRENTE (${task.group})" else task.group,
                     style = MaterialTheme.typography.caption,
                     fontWeight = FontWeight.Bold,
-                    color = Color.DarkGray
+                    color = if (task.isRecurrent) Color.Blue else Color.DarkGray
                 )
             }
         }
@@ -272,6 +322,7 @@ fun CalendarScreen(tasks: List<Task>, onDateSelected: (String) -> Unit) {
             items(31) { index ->
                 val day = index + 1
                 val dateString = "${day.toString().padStart(2, '0')}/${currentMonth.toString().padStart(2, '0')}/$currentYear"
+                // En el calendario mostramos si hay tareas registradas (aunque estén ocultas por completadas)
                 val hasTask = tasks.any { it.date == dateString }
 
                 Box(
@@ -288,7 +339,7 @@ fun CalendarScreen(tasks: List<Task>, onDateSelected: (String) -> Unit) {
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(Color.Gray)
+                                    .background(if (tasks.any { it.date == dateString && !it.isCompleted }) Color.Gray else Color.LightGray)
                             )
                         }
                     }
@@ -311,13 +362,15 @@ fun TaskDialog(
     var date by remember { mutableStateOf(initialDate) }
     var reminder by remember { mutableStateOf("Hora") }
     var isRecurrent by remember { mutableStateOf(false) }
+    var recurrenceInterval by remember { mutableStateOf("Día") }
     
     var selectedGroup by remember { mutableStateOf(existingGroups.firstOrNull() ?: "General") }
     var isCreatingNewGroup by remember { mutableStateOf(false) }
     var newGroupName by remember { mutableStateOf("") }
     var groupError by remember { mutableStateOf<String?>(null) }
     
-    var expanded by remember { mutableStateOf(false) }
+    var expandedGroup by remember { mutableStateOf(false) }
+    var expandedRecurrence by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -346,7 +399,6 @@ fun TaskDialog(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Sección de Grupo
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -382,17 +434,17 @@ fun TaskDialog(
                 } else {
                     Box {
                         OutlinedButton(
-                            onClick = { expanded = true },
+                            onClick = { expandedGroup = true },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(selectedGroup)
                             Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                         }
-                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenu(expanded = expandedGroup, onDismissRequest = { expandedGroup = false }) {
                             existingGroups.forEach { group ->
                                 DropdownMenuItem(onClick = {
                                     selectedGroup = group
-                                    expanded = false
+                                    expandedGroup = false
                                 }) {
                                     Text(group)
                                 }
@@ -402,7 +454,36 @@ fun TaskDialog(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Recordatorio:")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isRecurrent, onCheckedChange = { isRecurrent = it })
+                    Text("Actividad Recurrente")
+                }
+
+                if (isRecurrent) {
+                    Text("Repetir cada:", style = MaterialTheme.typography.caption)
+                    Box {
+                        OutlinedButton(
+                            onClick = { expandedRecurrence = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(recurrenceInterval)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = expandedRecurrence, onDismissRequest = { expandedRecurrence = false }) {
+                            listOf("Hora", "Día", "Semana", "Mes", "Año").forEach { interval ->
+                                DropdownMenuItem(onClick = {
+                                    recurrenceInterval = interval
+                                    expandedRecurrence = false
+                                }) {
+                                    Text(interval)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Estilo Recordatorio:")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = reminder == "Hora", onClick = { reminder = "Hora" })
                     Text("H")
@@ -410,10 +491,6 @@ fun TaskDialog(
                     Text("D")
                     RadioButton(selected = reminder == "Semana", onClick = { reminder = "Semana" })
                     Text("S")
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isRecurrent, onCheckedChange = { isRecurrent = it })
-                    Text("Recurrente")
                 }
             }
         },
@@ -426,7 +503,15 @@ fun TaskDialog(
 
                 if (name.isNotBlank() && date.isNotBlank() && isGroupValid) {
                     onSave(
-                        Task(name, description, date, reminder, isRecurrent, finalGroupName),
+                        Task(
+                            name = name, 
+                            description = description, 
+                            date = date, 
+                            reminder = reminder, 
+                            recurrenceInterval = if (isRecurrent) recurrenceInterval else "Ninguno",
+                            isRecurrent = isRecurrent, 
+                            group = finalGroupName
+                        ),
                         if (isCreatingNewGroup) finalGroupName else null
                     )
                 } else if (isCreatingNewGroup && finalGroupName.isEmpty()) {
@@ -445,8 +530,30 @@ fun TaskDialog(
 }
 
 @Composable
-fun EmptyScreen() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Módulo Vacío")
+fun EmptyScreen(tasks: List<Task>) {
+    val recurrentTasks = tasks.filter { it.isRecurrent }
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Registro de Actividades Recurrentes", style = MaterialTheme.typography.h6)
+        Spacer(modifier = Modifier.height(16.dp))
+        if (recurrentTasks.isEmpty()) {
+            Text("No hay actividades recurrentes configuradas")
+        } else {
+            LazyColumn {
+                items(recurrentTasks) { task ->
+                    Card(modifier = Modifier.fillMaxWidth().padding(4.dp), elevation = 4.dp) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Text(task.name, fontWeight = FontWeight.Bold)
+                            Text("Frecuencia: ${task.recurrenceInterval}", color = Color.Blue)
+                            Text("Estado: ${if (task.isCompleted) "Esperando siguiente ciclo" else "Pendiente"}")
+                            if (task.isCompleted) {
+                                Button(onClick = { /* Simulación de reinicio */ }) {
+                                    Text("Simular Siguiente Ciclo")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

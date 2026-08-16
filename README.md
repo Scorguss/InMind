@@ -47,3 +47,13 @@ El proyecto **InMind** forma parte de un trabajo de investigación/tesis orienta
     *   **Validación**: El nombre del grupo es obligatorio y debe ser único (no repetible). Se muestra un mensaje de error si el grupo ya existe o está vacío.
 *   **Actualización Automática**: Al crear una tarea con un grupo nuevo, este se añade a la lista global de grupos disponibles para futuras tareas.
 *   **Visualización por Grupos**: Se mejoró la tarjeta de tarea (`TaskCard`) para mostrar el grupo asignado y la vista agrupada ahora utiliza encabezados visuales más claros.
+
+### [Persistencia y Finalización de Actividades]
+*   **Acciones de Tarea**:
+    *   **Botón Finalizar (`Check`)**: Permite marcar una tarea como completada.
+    *   **Botón Eliminar (`Delete`)**: Permite borrar permanentemente una tarea.
+*   **Lógica de Persistencia Avanzada**:
+    *   **Tareas Normales**: Al finalizar, se eliminan permanentemente del registro.
+    *   **Tareas Recurrentes**: Al finalizar, desaparecen de la vista principal ("Tareas Pendientes") pero **no se eliminan**. Permanecen en el sistema y están diseñadas para reaparecer tras cumplirse su intervalo (Hora, Día, Semana, Mes, Año).
+*   **Configuración de Recurrencia**: El diálogo de creación permite ahora elegir el intervalo de repetición si la actividad se marca como recurrente.
+*   **Identificación Visual**: Las tareas recurrentes muestran su intervalo (ej. "Repetir cada: Día") y una etiqueta azul resaltada.
