@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -35,6 +37,7 @@ fun App() {
     MaterialTheme {
         var selectedTab by remember { mutableStateOf(0) }
         val tasks = remember { mutableStateListOf<Task>() }
+        val groups = remember { mutableStateListOf("General", "Trabajo", "Personal") }
         var showDialog by remember { mutableStateOf(false) }
         var selectedDateForDialog by remember { mutableStateOf("") }
         var isDateEditable by remember { mutableStateOf(false) }
@@ -90,8 +93,12 @@ fun App() {
             TaskDialog(
                 initialDate = selectedDateForDialog,
                 isDateEditable = isDateEditable,
+                existingGroups = groups,
                 onDismiss = { showDialog = false },
-                onSave = { task ->
+                onSave = { task, newGroup ->
+                    if (newGroup != null && !groups.contains(newGroup)) {
+                        groups.add(newGroup)
+                    }
                     tasks.add(task)
                     showDialog = false
                     selectedTab = 0
@@ -174,10 +181,18 @@ fun TaskCard(task: Task) {
         Column(modifier = Modifier.padding(8.dp)) {
             Text(task.name, style = MaterialTheme.typography.subtitle1)
             Text(task.description, style = MaterialTheme.typography.body2)
-            Text(
-                "Fecha: ${task.date} | Recordatorio: ${task.reminder}",
-                style = MaterialTheme.typography.caption
-            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    "Fecha: ${task.date} | Recordatorio: ${task.reminder}",
+                    style = MaterialTheme.typography.caption
+                )
+                Text(
+                    text = task.group,
+                    style = MaterialTheme.typography.caption,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.DarkGray
+                )
+            }
         }
     }
 }
@@ -287,20 +302,28 @@ fun CalendarScreen(tasks: List<Task>, onDateSelected: (String) -> Unit) {
 fun TaskDialog(
     initialDate: String,
     isDateEditable: Boolean,
+    existingGroups: List<String>,
     onDismiss: () -> Unit,
-    onSave: (Task) -> Unit
+    onSave: (Task, String?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(initialDate) }
     var reminder by remember { mutableStateOf("Hora") }
     var isRecurrent by remember { mutableStateOf(false) }
+    
+    var selectedGroup by remember { mutableStateOf(existingGroups.firstOrNull() ?: "General") }
+    var isCreatingNewGroup by remember { mutableStateOf(false) }
+    var newGroupName by remember { mutableStateOf("") }
+    var groupError by remember { mutableStateOf<String?>(null) }
+    
+    var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Nueva Actividad") },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -320,14 +343,72 @@ fun TaskDialog(
                     modifier = Modifier.fillMaxWidth(),
                     enabled = isDateEditable
                 )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Sección de Grupo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Grupo:", fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { 
+                        isCreatingNewGroup = !isCreatingNewGroup
+                        groupError = null
+                    }) {
+                        Icon(
+                            if (isCreatingNewGroup) Icons.Default.Close else Icons.Default.AddCircle,
+                            contentDescription = "Nuevo Grupo",
+                            tint = MaterialTheme.colors.primary
+                        )
+                    }
+                }
+
+                if (isCreatingNewGroup) {
+                    OutlinedTextField(
+                        value = newGroupName,
+                        onValueChange = { 
+                            newGroupName = it
+                            groupError = if (existingGroups.contains(it.trim())) "El grupo ya existe" else null
+                        },
+                        label = { Text("Nombre del Nuevo Grupo") },
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = groupError != null
+                    )
+                    if (groupError != null) {
+                        Text(groupError!!, color = MaterialTheme.colors.error, fontSize = 12.sp)
+                    }
+                } else {
+                    Box {
+                        OutlinedButton(
+                            onClick = { expanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(selectedGroup)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            existingGroups.forEach { group ->
+                                DropdownMenuItem(onClick = {
+                                    selectedGroup = group
+                                    expanded = false
+                                }) {
+                                    Text(group)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Recordatorio:")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = reminder == "Hora", onClick = { reminder = "Hora" })
                     Text("H")
-                    RadioButton(selected = reminder == "Diario", onClick = { reminder = "D" })
+                    RadioButton(selected = reminder == "Diario", onClick = { reminder = "Diario" })
                     Text("D")
-                    RadioButton(selected = reminder == "Semana", onClick = { reminder = "S" })
+                    RadioButton(selected = reminder == "Semana", onClick = { reminder = "Semana" })
                     Text("S")
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -338,8 +419,18 @@ fun TaskDialog(
         },
         confirmButton = {
             Button(onClick = { 
-                if (name.isNotBlank() && date.isNotBlank()) {
-                    onSave(Task(name, description, date, reminder, isRecurrent))
+                val finalGroupName = if (isCreatingNewGroup) newGroupName.trim() else selectedGroup
+                val isGroupValid = if (isCreatingNewGroup) {
+                    finalGroupName.isNotEmpty() && !existingGroups.contains(finalGroupName)
+                } else true
+
+                if (name.isNotBlank() && date.isNotBlank() && isGroupValid) {
+                    onSave(
+                        Task(name, description, date, reminder, isRecurrent, finalGroupName),
+                        if (isCreatingNewGroup) finalGroupName else null
+                    )
+                } else if (isCreatingNewGroup && finalGroupName.isEmpty()) {
+                    groupError = "Nombre obligatorio"
                 }
             }) {
                 Text("Guardar")

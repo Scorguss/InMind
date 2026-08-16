@@ -39,3 +39,11 @@ El proyecto **InMind** forma parte de un trabajo de investigación/tesis orienta
     *   **Botón de Vista**: Nuevo botón en la esquina superior derecha para alternar entre "Vista de Lista" y "Vista por Grupos" (utilizando `groupBy`).
     *   **Botón de Acceso Rápido**: Botón "+" en la esquina superior para crear tareas directamente desde el listado.
 *   **Pop-up Versátil**: El diálogo de creación ahora permite editar la fecha manualmente si se abre desde la lista de tareas, mientras que permanece fija si se abre desde un día específico del calendario.
+
+### [Gestión Dinámica de Grupos]
+*   **Selección de Grupos**: Se integró un `DropdownMenu` en el diálogo de creación de tareas para seleccionar grupos existentes.
+*   **Creación de Nuevos Grupos**:
+    *   Botón dedicado (`AddCircle`) para alternar a la creación de un nuevo grupo.
+    *   **Validación**: El nombre del grupo es obligatorio y debe ser único (no repetible). Se muestra un mensaje de error si el grupo ya existe o está vacío.
+*   **Actualización Automática**: Al crear una tarea con un grupo nuevo, este se añade a la lista global de grupos disponibles para futuras tareas.
+*   **Visualización por Grupos**: Se mejoró la tarjeta de tarea (`TaskCard`) para mostrar el grupo asignado y la vista agrupada ahora utiliza encabezados visuales más claros.
