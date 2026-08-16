@@ -57,3 +57,10 @@ El proyecto **InMind** forma parte de un trabajo de investigación/tesis orienta
     *   **Tareas Recurrentes**: Al finalizar, desaparecen de la vista principal ("Tareas Pendientes") pero **no se eliminan**. Permanecen en el sistema y están diseñadas para reaparecer tras cumplirse su intervalo (Hora, Día, Semana, Mes, Año).
 *   **Configuración de Recurrencia**: El diálogo de creación permite ahora elegir el intervalo de repetición si la actividad se marca como recurrente.
 *   **Identificación Visual**: Las tareas recurrentes muestran su intervalo (ej. "Repetir cada: Día") y una etiqueta azul resaltada.
+
+### [Funciones Avanzadas y Gestión Oculta]
+*   **Gestión de Grupos (Long Press)**: Al mantener presionado el botón de vista de grupos, se abre un diálogo de gestión.
+    *   Permite renombrar o eliminar grupos existentes.
+    *   **Lógica de Seguridad**: Al modificar un grupo, las tareas asociadas se mueven automáticamente al grupo "General" para evitar pérdida de datos.
+*   **Edición de Tareas (Long Press)**: Al mantener presionada cualquier tarjeta de tarea, se abre el diálogo de edición con todos sus campos habilitados.
+*   **Control de Estado Detallado**: Se mejoró la lógica de IDs únicos para permitir ediciones precisas y persistencia consistente.
