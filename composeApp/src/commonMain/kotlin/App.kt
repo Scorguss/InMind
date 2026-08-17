@@ -31,6 +31,7 @@ data class Task(
     val name: String,
     val description: String,
     val date: String,
+    val time: String,
     val reminder: String,
     val recurrenceInterval: String = "Ninguno",
     val isRecurrent: Boolean,
@@ -119,6 +120,7 @@ fun App() {
                 initialDate = selectedDateForDialog,
                 isDateEditable = isDateEditable,
                 existingGroups = groups,
+                allTasks = tasks,
                 onDismiss = { showCreateDialog = false },
                 onSave = { task, newGroup ->
                     if (newGroup != null && !groups.contains(newGroup)) {
@@ -135,6 +137,7 @@ fun App() {
             TaskDialog(
                 taskToEdit = taskToEdit,
                 existingGroups = groups,
+                allTasks = tasks,
                 onDismiss = { showEditTaskDialog = null },
                 onSave = { updatedTask, newGroup ->
                     if (newGroup != null && !groups.contains(newGroup)) {
@@ -155,7 +158,6 @@ fun App() {
                 onDismiss = { showGroupManageDialog = false },
                 onDeleteGroup = { groupName ->
                     groups.remove(groupName)
-                    // Mover tareas al grupo General
                     tasks.forEachIndexed { index, task ->
                         if (task.group == groupName) {
                             tasks[index] = task.copy(group = "General")
@@ -188,7 +190,7 @@ fun TasksScreen(
     onEditTask: (Task) -> Unit
 ) {
     var isGroupedView by remember { mutableStateOf(false) }
-    val visibleTasks = tasks.filter { !it.isCompleted }
+    val visibleTasks = tasks.filter { !it.isCompleted }.sortedWith(compareBy({ it.date }, { it.time }))
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
@@ -208,11 +210,11 @@ fun TasksScreen(
                 ) {
                     Icon(
                         if (isGroupedView) Icons.Default.Menu else Icons.AutoMirrored.Filled.List,
-                        contentDescription = "Cambiar Vista / Gestionar Grupos"
+                        contentDescription = null
                     )
                 }
                 IconButton(onClick = onAddTask) {
-                    Icon(Icons.Default.Add, contentDescription = "Nueva Tarea")
+                    Icon(Icons.Default.Add, contentDescription = null)
                 }
             }
         }
@@ -269,7 +271,7 @@ fun TaskCard(
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .combinedClickable(
-                onClick = { /* Nada por ahora */ },
+                onClick = { /* Opcional: mostrar detalles */ },
                 onLongClick = { onLongClick(task) }
             ),
         elevation = 2.dp
@@ -282,22 +284,27 @@ fun TaskCard(
                 }
                 Row {
                     IconButton(onClick = { onFinish(task) }) {
-                        Icon(Icons.Default.Check, contentDescription = "Finalizar", tint = Color.Green)
+                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.Green)
                     }
                     IconButton(onClick = { onDelete(task) }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
                     }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text(
-                        "Fecha: ${task.date} | Recordatorio: ${task.reminder}",
+                        "Fecha: ${task.date} | Hora: ${task.time}",
+                        style = MaterialTheme.typography.caption,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Recordatorio: ${task.reminder}",
                         style = MaterialTheme.typography.caption
                     )
                     if (task.isRecurrent) {
                         Text(
-                            "Recurrencia: ${task.recurrenceInterval}",
+                            "Frecuencia: ${task.recurrenceInterval}",
                             style = MaterialTheme.typography.caption,
                             color = Color.Blue
                         )
@@ -371,12 +378,14 @@ fun TaskDialog(
     initialDate: String = "",
     isDateEditable: Boolean = true,
     existingGroups: List<String>,
+    allTasks: List<Task>,
     onDismiss: () -> Unit,
     onSave: (Task, String?) -> Unit
 ) {
     var name by remember { mutableStateOf(taskToEdit?.name ?: "") }
     var description by remember { mutableStateOf(taskToEdit?.description ?: "") }
     var date by remember { mutableStateOf(taskToEdit?.date ?: initialDate) }
+    var time by remember { mutableStateOf(taskToEdit?.time ?: "12:00") }
     var reminder by remember { mutableStateOf(taskToEdit?.reminder ?: "Hora") }
     var isRecurrent by remember { mutableStateOf(taskToEdit?.isRecurrent ?: false) }
     var recurrenceInterval by remember { mutableStateOf(taskToEdit?.recurrenceInterval ?: "Día") }
@@ -384,8 +393,8 @@ fun TaskDialog(
     var selectedGroup by remember { mutableStateOf(taskToEdit?.group ?: (existingGroups.firstOrNull() ?: "General")) }
     var isCreatingNewGroup by remember { mutableStateOf(false) }
     var newGroupName by remember { mutableStateOf("") }
-    var groupError by remember { mutableStateOf<String?>(null) }
     
+    var timeError by remember { mutableStateOf<String?>(null) }
     var expandedGroup by remember { mutableStateOf(false) }
     var expandedRecurrence by remember { mutableStateOf(false) }
 
@@ -396,19 +405,23 @@ fun TaskDialog(
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre Tarea") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = date, onValueChange = { if (isDateEditable || taskToEdit != null) date = it }, label = { Text("Fecha (DD/MM/AAAA)") }, modifier = Modifier.fillMaxWidth(), enabled = isDateEditable || taskToEdit != null)
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(value = date, onValueChange = { if (isDateEditable || taskToEdit != null) date = it }, label = { Text("Fecha") }, modifier = Modifier.weight(1f), enabled = isDateEditable || taskToEdit != null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(value = time, onValueChange = { time = it; timeError = null }, label = { Text("Hora (HH:MM)") }, modifier = Modifier.weight(0.8f), isError = timeError != null)
+                }
+                if (timeError != null) { Text(timeError!!, color = Color.Red, fontSize = 12.sp) }
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Grupo:", fontWeight = FontWeight.Bold)
-                    IconButton(onClick = { isCreatingNewGroup = !isCreatingNewGroup; groupError = null }) {
+                    IconButton(onClick = { isCreatingNewGroup = !isCreatingNewGroup }) {
                         Icon(if (isCreatingNewGroup) Icons.Default.Close else Icons.Default.AddCircle, contentDescription = null, tint = MaterialTheme.colors.primary)
                     }
                 }
 
                 if (isCreatingNewGroup) {
-                    OutlinedTextField(value = newGroupName, onValueChange = { newGroupName = it; groupError = if (existingGroups.contains(it.trim())) "El grupo ya existe" else null }, label = { Text("Nombre del Nuevo Grupo") }, modifier = Modifier.fillMaxWidth(), isError = groupError != null)
-                    if (groupError != null) { Text(groupError!!, color = MaterialTheme.colors.error, fontSize = 12.sp) }
+                    OutlinedTextField(value = newGroupName, onValueChange = { newGroupName = it }, label = { Text("Nombre del Nuevo Grupo") }, modifier = Modifier.fillMaxWidth())
                 } else {
                     Box {
                         OutlinedButton(onClick = { expandedGroup = true }, modifier = Modifier.fillMaxWidth()) {
@@ -441,7 +454,7 @@ fun TaskDialog(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Estilo Recordatorio:")
+                Text("Recordatorio:")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = reminder == "Hora", onClick = { reminder = "Hora" }); Text("H")
                     RadioButton(selected = reminder == "Diario", onClick = { reminder = "Diario" }); Text("D")
@@ -452,9 +465,28 @@ fun TaskDialog(
         confirmButton = {
             Button(onClick = { 
                 val finalGroupName = if (isCreatingNewGroup) newGroupName.trim() else selectedGroup
-                if (name.isNotBlank() && date.isNotBlank() && (!isCreatingNewGroup || (finalGroupName.isNotEmpty() && !existingGroups.contains(finalGroupName)))) {
+                
+                // Validación de superposición
+                val hasOverlap = allTasks.any { 
+                    it.id != taskToEdit?.id && it.date == date && it.time == time && !it.isCompleted 
+                }
+
+                if (hasOverlap) {
+                    timeError = "Ya hay una actividad a esta hora"
+                } else if (name.isNotBlank() && date.isNotBlank() && time.isNotBlank()) {
                     onSave(
-                        Task(id = taskToEdit?.id ?: kotlin.random.Random.nextLong(), name = name, description = description, date = date, reminder = reminder, recurrenceInterval = if (isRecurrent) recurrenceInterval else "Ninguno", isRecurrent = isRecurrent, group = finalGroupName, isCompleted = taskToEdit?.isCompleted ?: false),
+                        Task(
+                            id = taskToEdit?.id ?: kotlin.random.Random.nextLong(),
+                            name = name, 
+                            description = description, 
+                            date = date, 
+                            time = time,
+                            reminder = reminder, 
+                            recurrenceInterval = if (isRecurrent) recurrenceInterval else "Ninguno", 
+                            isRecurrent = isRecurrent, 
+                            group = finalGroupName, 
+                            isCompleted = taskToEdit?.isCompleted ?: false
+                        ),
                         if (isCreatingNewGroup) finalGroupName else null
                     )
                 }
@@ -476,7 +508,7 @@ fun GroupManageDialog(
         title = { Text("Gestionar Grupos") },
         text = {
             Column {
-                Text("Advertencia: Si elimina o renombra un grupo, las actividades asociadas volverán a 'General' por defecto.", style = MaterialTheme.typography.caption, color = Color.Red)
+                Text("Si modifica un grupo, sus tareas pasarán a 'General'.", style = MaterialTheme.typography.caption, color = Color.Red)
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                     items(groups) { group ->
@@ -493,9 +525,7 @@ fun GroupManageDialog(
                                     IconButton(onClick = { onDeleteGroup(group) }) { Icon(Icons.Default.Delete, contentDescription = null) }
                                 }
                             }
-                        } else {
-                            Text(group, modifier = Modifier.padding(12.dp), color = Color.Gray)
-                        }
+                        } else { Text(group, modifier = Modifier.padding(12.dp), color = Color.Gray) }
                     }
                 }
             }
@@ -508,18 +538,18 @@ fun GroupManageDialog(
 fun EmptyScreen(tasks: List<Task>) {
     val recurrentTasks = tasks.filter { it.isRecurrent }
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Registro de Actividades Recurrentes", style = MaterialTheme.typography.h6)
+        Text("Control de Recurrencia", style = MaterialTheme.typography.h6)
         Spacer(modifier = Modifier.height(16.dp))
         if (recurrentTasks.isEmpty()) {
-            Text("No hay actividades recurrentes configuradas")
+            Text("Sin actividades recurrentes")
         } else {
             LazyColumn {
                 items(recurrentTasks) { task ->
                     Card(modifier = Modifier.fillMaxWidth().padding(4.dp), elevation = 4.dp) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text(task.name, fontWeight = FontWeight.Bold)
-                            Text("Frecuencia: ${task.recurrenceInterval}", color = Color.Blue)
-                            Text("Estado: ${if (task.isCompleted) "Esperando siguiente ciclo" else "Pendiente"}")
+                            Text("Cada: ${task.recurrenceInterval}", color = Color.Blue)
+                            Text("Estado: ${if (task.isCompleted) "En espera" else "Activa"}")
                         }
                     }
                 }

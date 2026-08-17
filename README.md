@@ -64,3 +64,10 @@ El proyecto **InMind** forma parte de un trabajo de investigación/tesis orienta
     *   **Lógica de Seguridad**: Al modificar un grupo, las tareas asociadas se mueven automáticamente al grupo "General" para evitar pérdida de datos.
 *   **Edición de Tareas (Long Press)**: Al mantener presionada cualquier tarjeta de tarea, se abre el diálogo de edición con todos sus campos habilitados.
 *   **Control de Estado Detallado**: Se mejoró la lógica de IDs únicos para permitir ediciones precisas y persistencia consistente.
+
+### [Gestión de Tiempos y Validación]
+*   **Campo de Hora**: Se añadió la posibilidad de asignar una hora específica (`HH:MM`) a cada actividad.
+*   **Validación de Superposición**:
+    *   El sistema ahora verifica automáticamente si ya existe una tarea activa para la misma fecha y hora.
+    *   **Prevención de Conflictos**: Si se detecta un choque de horarios, el diálogo de guardado muestra un error y bloquea la acción, evitando que dos eventos se encimen.
+*   **Ordenamiento Cronológico**: La lista de tareas pendientes ahora se ordena automáticamente por fecha y luego por hora, facilitando la visualización de la agenda del día.
